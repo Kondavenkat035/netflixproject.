@@ -1,0 +1,52 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "kondavenkat035/netflix"
+        TAG = "${BUILD_NUMBER}"
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Kondavenkat035/netflixproject..git'
+            }
+        }
+        stage('Inntall') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${DOCKER_IMAGE}:${TAG} ."
+            }
+        }
+
+        stage('Login to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'valaxy-docker',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Image to DockerHub') {
+            steps {
+                sh """
+                docker push ${DOCKER_IMAGE}:${TAG}
+                docker tag ${DOCKER_IMAGE}:${TAG} ${DOCKER_IMAGE}:latest
+                docker push ${DOCKER_IMAGE}:latest
+                """
+            }
+        }
+    }
+}
